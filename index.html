@@ -8,7 +8,11 @@
     body { max-width: 40rem; margin: 2rem auto; padding: 0 1rem; font: 1rem/1.5 system-ui, sans-serif; }
     textarea { box-sizing: border-box; display: block; width: 100%; margin: .5rem 0; padding: .5rem; font: inherit; }
     button { padding: .4rem .8rem; font: inherit; }
-    pre { white-space: pre-wrap; }
+    pre { white-space: pre-wrap; margin: 0; padding: .5rem; border: 1px solid #ccc; border-radius: .25rem; font: inherit; }
+    .status { margin: 1rem 0 .5rem; }
+    .status:empty { display: none; }
+    .status.manual, .status.invalid { padding: .5rem .75rem; border-left: .25rem solid #b45309; background: #fef3c7; color: #1f2937; }
+    .status.loading { color: #555; }
   </style>
 </head>
 <body>
@@ -18,18 +22,34 @@
     <textarea id="message" rows="4"></textarea>
     <button type="submit">Разобрать заявку</button>
   </form>
-  <pre id="result" aria-live="polite"></pre>
+  <section id="result" aria-live="polite">
+    <p id="status" class="status"></p>
+    <div id="answer" hidden>
+      <p>Тема: <strong id="topic"></strong></p>
+      <p>Черновик ответа:</p>
+      <pre id="draft"></pre>
+    </div>
+  </section>
   <script type="module">
-    const form = document.querySelector("form");
-    const result = document.querySelector("#result");
-    form.addEventListener("submit", async (event) => {
+    import { createController } from "/ui.mjs";
+
+    const $ = (selector) => document.querySelector(selector);
+    const submit = createController({
+      els: { status: $("#status"), topic: $("#topic"), draft: $("#draft"), answer: $("#answer") },
+      async request(text, signal) {
+        const reply = await fetch("/api/triage", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ text }),
+          signal,
+        });
+        return { httpStatus: reply.status, body: await reply.json() };
+      },
+    });
+
+    $("form").addEventListener("submit", (event) => {
       event.preventDefault();
-      const reply = await fetch("/api/triage", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ text: document.querySelector("#message").value }),
-      });
-      result.textContent = JSON.stringify(await reply.json(), null, 2);
+      submit($("#message").value);
     });
   </script>
 </body>
